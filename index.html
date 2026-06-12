@@ -1,0 +1,1424 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>しょうぼうしょと がっこうを さがそう</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "UD デジタル 教科書体 N-R", "Hiragino Sans", "Yu Gothic", sans-serif;
+  background: #eaf6ff;
+  color: #123;
+}
+
+body {
+  touch-action: none;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+#scene {
+  width: 100%;
+  height: 100%;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mapScene {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.routeScene {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.mapFrame {
+  position: relative;
+  width: min(100%, calc((100vh - 24px) * 1.834));
+  aspect-ratio: 1240 / 676;
+  background: #fff;
+  border: 5px solid #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.18);
+  overflow: hidden;
+}
+
+.routeScene .mapFrame {
+  width: min(100%, calc((100vh - 150px) * 1.834));
+}
+
+.mapImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.mapSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.hitArea {
+  fill: transparent;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.glowGroup {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+}
+
+.glowGroup.on {
+  opacity: 1;
+  animation: none;
+}
+
+/* 消防署名の囲み */
+.glowShape {
+  fill: none;
+  stroke: #ffcc00;
+  stroke-width: 7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: none;
+}
+
+/* 学校敷地の囲み */
+.schoolLand {
+  fill: none;
+  stroke: #ffcc00;
+  stroke-width: 8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: none;
+}
+
+/* 右上の「さがそう！」見本 */
+.targetPrompt {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px 8px 8px;
+  background: rgba(255, 255, 255, .96);
+  border: 5px solid #ffcc00;
+  border-radius: 22px;
+  box-shadow: 0 5px 16px rgba(0,0,0,.18);
+  pointer-events: none;
+}
+
+.targetPrompt img {
+  height: 62px;
+  max-width: 280px;
+  object-fit: contain;
+  display: block;
+  border-radius: 10px;
+}
+
+.targetPromptText {
+  font-size: 32px;
+  font-weight: 900;
+  color: #ff6b00;
+  white-space: nowrap;
+}
+
+.correctPanel {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.correctBox {
+  padding: 28px 56px;
+  border-radius: 36px;
+  background: rgba(255, 255, 255, .94);
+  border: 8px solid #ff6b9a;
+  box-shadow: 0 0 30px rgba(255,107,154,.7);
+  font-size: 72px;
+  font-weight: 900;
+  color: #ff2d75;
+  transform: rotate(-3deg);
+  animation: pop .35s ease-out;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.nextBtn,
+.mainBtn {
+  position: absolute;
+  right: 24px;
+  bottom: 22px;
+  z-index: 20;
+  border: none;
+  border-radius: 24px;
+  background: #ff8a00;
+  color: white;
+  font-size: 30px;
+  font-weight: 900;
+  padding: 16px 34px;
+  box-shadow: 0 6px 0 #c86400;
+}
+
+.nextBtn:active,
+.mainBtn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #c86400;
+}
+
+/* 紹介画面 */
+.infoViewPage {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 1.2fr .85fr;
+  gap: 12px;
+  position: relative;
+  padding: 4px 10px 86px;
+}
+
+.streetViewBox {
+  width: min(920px, 92vw);
+  justify-self: center;
+  background: #fff;
+  border: 5px solid #8ed2ff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,.16);
+  touch-action: auto;
+}
+
+.streetViewBox iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  touch-action: auto;
+}
+
+.infoBottomImages {
+  width: min(1000px, 96vw);
+  justify-self: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  min-height: 0;
+}
+
+.infoImageBox {
+  background: #fff;
+  border: 5px solid #cbefff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 5px 14px rgba(0,0,0,.12);
+  position: relative;
+}
+
+.infoImageBox img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #f1f5f8;
+}
+
+.infoImageBox.missing::after {
+  content: attr(data-missing);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  color: #789;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.routeCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  touch-action: none;
+}
+
+.routeBottomBar {
+  width: min(100%, calc((100vh - 150px) * 1.834));
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.smallBtn {
+  border: none;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #0b5cad;
+  font-size: 24px;
+  font-weight: 900;
+  padding: 12px 24px;
+  border: 4px solid #8ed2ff;
+  box-shadow: 0 4px 0 #5aa5d8;
+}
+
+.smallBtn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #5aa5d8;
+}
+
+.progressText {
+  flex: 1;
+  background: rgba(255,255,255,.94);
+  border: 4px solid #ffd86b;
+  border-radius: 18px;
+  padding: 12px 18px;
+  font-size: 23px;
+  font-weight: 900;
+  color: #7a4a00;
+  text-align: center;
+}
+
+/* 調整モード */
+.debugPanel {
+  width: min(100%, calc((100vh - 150px) * 1.834));
+  height: 70px;
+  background: rgba(255,255,255,.96);
+  border: 3px solid #999;
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+  overflow: auto;
+  white-space: pre-wrap;
+  line-height: 1.35;
+}
+
+.debugSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.debugRouteLine {
+  stroke: #0066ff;
+  stroke-width: 5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .9;
+  pointer-events: none;
+}
+
+.debugRouteBand {
+  stroke: rgba(0, 102, 255, .22);
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.debugRoutePoint {
+  fill: #0066ff;
+  stroke: #fff;
+  stroke-width: 5;
+  pointer-events: all;
+  cursor: grab;
+}
+
+.debugRoutePoint:active {
+  cursor: grabbing;
+}
+
+.debugRouteText {
+  font-size: 20px;
+  font-weight: 900;
+  fill: #0066ff;
+  pointer-events: none;
+}
+
+.debugCheckpoint {
+  fill: rgba(255, 0, 0, .25);
+  stroke: #ff0000;
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.debugCheckpointText {
+  font-size: 20px;
+  font-weight: 900;
+  fill: #ff0000;
+  pointer-events: none;
+}
+
+.debugSchoolPoint {
+  fill: #ff2d75;
+  stroke: #fff;
+  stroke-width: 5;
+  pointer-events: all;
+  cursor: grab;
+}
+
+.debugSchoolPoint:active {
+  cursor: grabbing;
+}
+
+.debugSchoolLine {
+  fill: rgba(255, 230, 0, .14);
+  stroke: #ff2d75;
+  stroke-width: 4;
+  stroke-dasharray: 8 6;
+  pointer-events: none;
+}
+
+.debugSchoolText {
+  font-size: 20px;
+  font-weight: 900;
+  fill: #ff2d75;
+  pointer-events: none;
+}
+
+.clearPage {
+  width: min(900px, 95%);
+  background: #fff;
+  border: 6px solid #8ed2ff;
+  border-radius: 30px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  position: relative;
+}
+
+.clearTitle {
+  font-size: 54px;
+  font-weight: 900;
+  color: #ff2d75;
+  margin-bottom: 20px;
+}
+
+.clearText {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.6;
+  color: #234;
+}
+
+.introOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 30, 60, .28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+}
+
+.introBox {
+  width: min(860px, 92vw);
+  background: rgba(255,255,255,.97);
+  border: 8px solid #8ed2ff;
+  border-radius: 36px;
+  padding: 34px 44px 30px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.25);
+  text-align: center;
+}
+
+.introTitle {
+  font-size: 46px;
+  font-weight: 900;
+  color: #0b5cad;
+  margin-bottom: 18px;
+  line-height: 1.25;
+}
+
+.introText {
+  font-size: 32px;
+  font-weight: 800;
+  color: #234;
+  line-height: 1.6;
+}
+
+.introTap {
+  margin-top: 22px;
+  display: inline-block;
+  padding: 10px 24px;
+  border-radius: 20px;
+  background: #ff8a00;
+  color: #fff;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+@keyframes pop {
+  from { transform: scale(.4) rotate(-8deg); opacity: 0; }
+  to   { transform: scale(1) rotate(-3deg); opacity: 1; }
+}
+</style>
+</head>
+
+<body>
+<div id="app">
+  <div id="scene"></div>
+</div>
+
+<script>
+/* =========================================================
+   調整モード
+   調整中：true
+   授業で使うとき：false
+   ========================================================= */
+
+const DEBUG_ROUTE = true;
+const DEBUG_SCHOOL = true;
+
+/* =========================================================
+   画像・ストリートビュー
+   ========================================================= */
+
+const MAP_SRC = "map.png";
+
+const TARGET_IMAGES = {
+  fire: "fire_target.png",
+  school: "school_target.png"
+};
+
+const INFO_CONTENT = {
+  fire: {
+    streetViewSrc: "https://www.google.com/maps/embed?pb=!4v1781187541257!6m8!1m7!1syHWhmIlNIBtGTXKxwdkXYg!2m2!1d35.7806478030261!2d139.863668681261!3f354.13934!4f0!5f0.7820865974627469",
+    mapImg: "fire_map.jpg",
+    airImg: "fire_air.jpg"
+  },
+  school: {
+    streetViewSrc: "https://www.google.com/maps/embed?pb=!4v1781187270866!6m8!1m7!1smGdfv5qOrV0f1gEabM1rFg!2m2!1d35.78465522479138!2d139.8541453695942!3f171.19108216110456!4f7.829057023559685!5f0.7820865974627469",
+    mapImg: "school_map.jpg",
+    airImg: "school_air.jpg"
+  }
+};
+
+/* =========================================================
+   地図座標
+   元画像サイズ：1240 × 676
+   ========================================================= */
+
+const MAP_W = 1240;
+const MAP_H = 676;
+
+/*
+  学校敷地。
+  DEBUG_SCHOOL = true のとき、赤い点をドラッグして調整できます。
+*/
+let schoolPoints = [
+  [266, 201],
+  [314, 198],
+  [335, 207],
+  [333, 265],
+  [326, 293],
+  [273, 311],
+  [267, 308]
+];
+
+function getSchoolPolyString() {
+  return schoolPoints.map(p => `${Math.round(p[0])},${Math.round(p[1])}`).join(" ");
+}
+
+/*
+  消防署のタップ判定。
+*/
+const FIRE_HIT = { x: 905, y: 492, w: 235, h: 78 };
+
+/*
+  学校名のタップ判定。
+*/
+const SCHOOL_HIT = { x: 135, y: 190, w: 175, h: 64 };
+
+/*
+  ルートの折れ点。
+  DEBUG_ROUTE = true のとき、青い点をドラッグして調整できます。
+*/
+let routePoints = [
+  [938, 527],
+  [938, 575],
+  [720, 578],
+  [520, 596],
+  [355, 615],
+  [208, 622],
+  [250, 510],
+  [295, 395],
+  [338, 280],
+  [365, 205]
+];
+
+/*
+  点と点の間の道路幅。
+  routePoints が10点なら、routeWidths は9個です。
+*/
+let routeWidths = [
+  50, 54, 54, 54, 58, 62, 62, 62, 62
+];
+
+/*
+  各ルート点を通過判定に使う半径。
+*/
+let routeCheckpointRadii = [
+  45, 55, 70, 70, 75, 75, 75, 75, 75, 80
+];
+
+function getRouteSegments() {
+  const segments = [];
+
+  for (let i = 0; i < routePoints.length - 1; i++) {
+    segments.push({
+      a: routePoints[i],
+      b: routePoints[i + 1],
+      width: routeWidths[i] || 54
+    });
+  }
+
+  return segments;
+}
+
+function getCheckpoints() {
+  return routePoints.map((p, i) => ({
+    x: p[0],
+    y: p[1],
+    r: routeCheckpointRadii[i] || 70
+  }));
+}
+
+/* =========================================================
+   基本処理
+   ========================================================= */
+
+const sceneEl = document.getElementById("scene");
+
+function renderScene(n) {
+  if (n === 0) renderFindFire();
+  if (n === 1) renderFireInfo();
+  if (n === 2) renderFindSchool();
+  if (n === 3) renderSchoolInfo();
+  if (n === 4) renderRoute();
+  if (n === 5) renderClear();
+}
+
+function showIntro(title, text) {
+  const old = document.querySelector(".introOverlay");
+  if (old) old.remove();
+
+  const overlay = document.createElement("div");
+  overlay.className = "introOverlay";
+  overlay.innerHTML = `
+    <div class="introBox">
+      <div class="introTitle">${title}</div>
+      <div class="introText">${text}</div>
+      <div class="introTap">タップして はじめる</div>
+    </div>
+  `;
+
+  overlay.addEventListener("pointerup", () => {
+    overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+}
+
+function svgDefs() {
+  return `
+    <defs>
+      <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation="7" result="blur"></feGaussianBlur>
+        <feMerge>
+          <feMergeNode in="blur"></feMergeNode>
+          <feMergeNode in="SourceGraphic"></feMergeNode>
+        </feMerge>
+      </filter>
+    </defs>
+  `;
+}
+
+function correctHtml(nextText = "つぎへ") {
+  return `
+    <div class="correctPanel hidden" id="correctPanel">
+      <div class="correctBox">せいかい！</div>
+    </div>
+    <button class="nextBtn hidden" id="nextBtn">${nextText}</button>
+  `;
+}
+
+function showCorrect(nextScene) {
+  document.getElementById("correctPanel").classList.remove("hidden");
+
+  const nextBtn = document.getElementById("nextBtn");
+  nextBtn.classList.remove("hidden");
+  nextBtn.onclick = () => renderScene(nextScene);
+}
+
+function mapImageTag() {
+  return `<img class="mapImg" src="${MAP_SRC}" alt="地図" draggable="false">`;
+}
+
+function targetPromptHtml(kind) {
+  return `
+    <div class="targetPrompt">
+      <img src="${TARGET_IMAGES[kind]}" alt="" draggable="false">
+      <div class="targetPromptText">さがそう！</div>
+    </div>
+  `;
+}
+
+function debugPanelHtml() {
+  if (!DEBUG_ROUTE && !DEBUG_SCHOOL) return "";
+  return `<div class="debugPanel" id="debugPanel"></div>`;
+}
+
+function updateDebugPanel(extra = "") {
+  const panel = document.getElementById("debugPanel");
+  if (!panel) return;
+
+  const schoolText = `let schoolPoints = ${JSON.stringify(schoolPoints)};`;
+  const routeText = `let routePoints = ${JSON.stringify(routePoints)};`;
+  const widthText = `let routeWidths = ${JSON.stringify(routeWidths)};`;
+
+  panel.textContent =
+    `${schoolText}\n${routeText}\n${widthText}${extra ? "\n" + extra : ""}`;
+}
+
+/* =========================================================
+   調整用SVG
+   ========================================================= */
+
+function debugOverlaySvg(options = {}) {
+  const showRoute = options.route ?? DEBUG_ROUTE;
+  const showSchool = options.school ?? DEBUG_SCHOOL;
+
+  if (!showRoute && !showSchool) return "";
+
+  const segments = getRouteSegments();
+  const checkpoints = getCheckpoints();
+
+  const routeDebug = showRoute
+    ? `
+      ${segments.map((seg, i) => `
+        <line class="debugRouteBand"
+          data-seg="${i}"
+          x1="${seg.a[0]}" y1="${seg.a[1]}"
+          x2="${seg.b[0]}" y2="${seg.b[1]}"
+          stroke-width="${seg.width}">
+        </line>
+        <line class="debugRouteLine"
+          data-seg="${i}"
+          x1="${seg.a[0]}" y1="${seg.a[1]}"
+          x2="${seg.b[0]}" y2="${seg.b[1]}">
+        </line>
+      `).join("")}
+
+      ${checkpoints.map((cp, i) => `
+        <circle class="debugCheckpoint"
+          data-cp="${i}"
+          cx="${cp.x}" cy="${cp.y}" r="${cp.r}">
+        </circle>
+        <text class="debugCheckpointText"
+          data-cp-text="${i}"
+          x="${cp.x + 10}" y="${cp.y + 28}">
+          C${i + 1}
+        </text>
+      `).join("")}
+
+      ${routePoints.map((p, i) => `
+        <circle
+          class="debugRoutePoint"
+          data-route-index="${i}"
+          cx="${p[0]}"
+          cy="${p[1]}"
+          r="13">
+        </circle>
+        <text
+          class="debugRouteText"
+          data-route-text="${i}"
+          x="${p[0] + 14}"
+          y="${p[1] - 10}">
+          R${i + 1}
+        </text>
+      `).join("")}
+    `
+    : "";
+
+  const schoolDebug = showSchool
+    ? `
+      <polygon class="debugSchoolLine" id="debugSchoolLine" points="${getSchoolPolyString()}"></polygon>
+      ${schoolPoints.map((p, i) => `
+        <circle
+          class="debugSchoolPoint"
+          data-school-index="${i}"
+          cx="${p[0]}"
+          cy="${p[1]}"
+          r="13">
+        </circle>
+        <text
+          class="debugSchoolText"
+          data-school-text="${i}"
+          x="${p[0] + 14}"
+          y="${p[1] - 10}">
+          S${i + 1}
+        </text>
+      `).join("")}
+    `
+    : "";
+
+  return `
+    <svg class="debugSvg" id="debugSvg" viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="none">
+      ${routeDebug}
+      ${schoolDebug}
+    </svg>
+  `;
+}
+
+function setupDebugDragging(options = {}) {
+  const useRoute = options.route ?? DEBUG_ROUTE;
+  const useSchool = options.school ?? DEBUG_SCHOOL;
+
+  if (useSchool) setupSchoolDebugDragging();
+  if (useRoute) setupRouteDebugDragging();
+}
+
+function getSvgPointFromEvent(e, svgEl) {
+  const rect = svgEl.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / rect.width * MAP_W,
+    y: (e.clientY - rect.top) / rect.height * MAP_H
+  };
+}
+
+function setupSchoolDebugDragging() {
+  if (!DEBUG_SCHOOL) return;
+
+  const debugSvg = document.getElementById("debugSvg");
+  if (!debugSvg) return;
+
+  let draggingIndex = null;
+
+  debugSvg.querySelectorAll(".debugSchoolPoint").forEach(circle => {
+    circle.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      draggingIndex = Number(circle.dataset.schoolIndex);
+      circle.setPointerCapture(e.pointerId);
+    });
+
+    circle.addEventListener("pointermove", e => {
+      if (draggingIndex === null) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const p = getSvgPointFromEvent(e, debugSvg);
+      schoolPoints[draggingIndex] = [Math.round(p.x), Math.round(p.y)];
+
+      refreshSchoolDebug();
+      updateDebugPanel(`学校点 S${draggingIndex + 1} = ${Math.round(p.x)},${Math.round(p.y)}`);
+    });
+
+    circle.addEventListener("pointerup", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      draggingIndex = null;
+      updateDebugPanel();
+    });
+
+    circle.addEventListener("pointercancel", () => {
+      draggingIndex = null;
+      updateDebugPanel();
+    });
+  });
+}
+
+function setupRouteDebugDragging() {
+  if (!DEBUG_ROUTE) return;
+
+  const debugSvg = document.getElementById("debugSvg");
+  if (!debugSvg) return;
+
+  let draggingRouteIndex = null;
+
+  debugSvg.querySelectorAll(".debugRoutePoint").forEach(circle => {
+    circle.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      draggingRouteIndex = Number(circle.dataset.routeIndex);
+      circle.setPointerCapture(e.pointerId);
+    });
+
+    circle.addEventListener("pointermove", e => {
+      if (draggingRouteIndex === null) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const p = getSvgPointFromEvent(e, debugSvg);
+      routePoints[draggingRouteIndex] = [Math.round(p.x), Math.round(p.y)];
+
+      refreshRouteDebug();
+      updateDebugPanel(`ルート点 R${draggingRouteIndex + 1} = ${Math.round(p.x)},${Math.round(p.y)}`);
+    });
+
+    circle.addEventListener("pointerup", e => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      draggingRouteIndex = null;
+      updateDebugPanel();
+    });
+
+    circle.addEventListener("pointercancel", () => {
+      draggingRouteIndex = null;
+      updateDebugPanel();
+    });
+  });
+}
+
+function refreshSchoolDebug() {
+  const points = getSchoolPolyString();
+
+  document.querySelectorAll(".schoolLand").forEach(poly => {
+    poly.setAttribute("points", points);
+  });
+
+  const debugPoly = document.getElementById("debugSchoolLine");
+  if (debugPoly) debugPoly.setAttribute("points", points);
+
+  document.querySelectorAll(".debugSchoolPoint").forEach(circle => {
+    const i = Number(circle.dataset.schoolIndex);
+    const p = schoolPoints[i];
+    if (!p) return;
+
+    circle.setAttribute("cx", p[0]);
+    circle.setAttribute("cy", p[1]);
+  });
+
+  document.querySelectorAll(".debugSchoolText").forEach(text => {
+    const i = Number(text.dataset.schoolText);
+    const p = schoolPoints[i];
+    if (!p) return;
+
+    text.setAttribute("x", p[0] + 14);
+    text.setAttribute("y", p[1] - 10);
+  });
+}
+
+function refreshRouteDebug() {
+  const segments = getRouteSegments();
+  const checkpoints = getCheckpoints();
+
+  document.querySelectorAll(".debugRouteBand").forEach(line => {
+    const i = Number(line.dataset.seg);
+    const seg = segments[i];
+    if (!seg) return;
+
+    line.setAttribute("x1", seg.a[0]);
+    line.setAttribute("y1", seg.a[1]);
+    line.setAttribute("x2", seg.b[0]);
+    line.setAttribute("y2", seg.b[1]);
+    line.setAttribute("stroke-width", seg.width);
+  });
+
+  document.querySelectorAll(".debugRouteLine").forEach(line => {
+    const i = Number(line.dataset.seg);
+    const seg = segments[i];
+    if (!seg) return;
+
+    line.setAttribute("x1", seg.a[0]);
+    line.setAttribute("y1", seg.a[1]);
+    line.setAttribute("x2", seg.b[0]);
+    line.setAttribute("y2", seg.b[1]);
+  });
+
+  document.querySelectorAll(".debugRoutePoint").forEach(circle => {
+    const i = Number(circle.dataset.routeIndex);
+    const p = routePoints[i];
+    if (!p) return;
+
+    circle.setAttribute("cx", p[0]);
+    circle.setAttribute("cy", p[1]);
+  });
+
+  document.querySelectorAll(".debugRouteText").forEach(text => {
+    const i = Number(text.dataset.routeText);
+    const p = routePoints[i];
+    if (!p) return;
+
+    text.setAttribute("x", p[0] + 14);
+    text.setAttribute("y", p[1] - 10);
+  });
+
+  document.querySelectorAll(".debugCheckpoint").forEach(circle => {
+    const i = Number(circle.dataset.cp);
+    const cp = checkpoints[i];
+    if (!cp) return;
+
+    circle.setAttribute("cx", cp.x);
+    circle.setAttribute("cy", cp.y);
+    circle.setAttribute("r", cp.r);
+  });
+
+  document.querySelectorAll(".debugCheckpointText").forEach(text => {
+    const i = Number(text.dataset.cpText);
+    const cp = checkpoints[i];
+    if (!cp) return;
+
+    text.setAttribute("x", cp.x + 10);
+    text.setAttribute("y", cp.y + 28);
+  });
+}
+
+/* =========================================================
+   ① 消防署を探す
+   ========================================================= */
+
+function renderFindFire() {
+  sceneEl.innerHTML = `
+    <div class="mapScene">
+      <div class="mapFrame">
+        ${mapImageTag()}
+        ${targetPromptHtml("fire")}
+
+        <svg class="mapSvg" viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="none">
+          ${svgDefs()}
+
+          <g class="glowGroup" id="fireGlow">
+            <rect class="glowShape" x="956" y="505" width="175" height="52" rx="14"></rect>
+          </g>
+
+          <rect
+            class="hitArea"
+            id="fireHit"
+            x="${FIRE_HIT.x}"
+            y="${FIRE_HIT.y}"
+            width="${FIRE_HIT.w}"
+            height="${FIRE_HIT.h}">
+          </rect>
+        </svg>
+
+        ${correctHtml("つぎへ")}
+      </div>
+    </div>
+  `;
+
+  document.getElementById("fireHit").addEventListener("pointerup", () => {
+    document.getElementById("fireGlow").classList.add("on");
+    showCorrect(1);
+  });
+
+  showIntro(
+    "しょうぼうしょを さがそう",
+    "地図の中から、<br>消防署を見つけてタップしましょう。"
+  );
+}
+
+/* =========================================================
+   ② 消防署紹介
+   ========================================================= */
+
+function renderFireInfo() {
+  renderInfoPage("fire");
+}
+
+/* =========================================================
+   ③ 学校を探す
+   ========================================================= */
+
+function renderFindSchool() {
+  const useDebugLayout = DEBUG_SCHOOL;
+
+  sceneEl.innerHTML = `
+    <div class="${useDebugLayout ? "routeScene" : "mapScene"}">
+      <div class="mapFrame">
+        ${mapImageTag()}
+        ${targetPromptHtml("school")}
+
+        <svg class="mapSvg" viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="none">
+          ${svgDefs()}
+
+          <g class="glowGroup" id="schoolGlow">
+            <polygon class="schoolLand" points="${getSchoolPolyString()}"></polygon>
+          </g>
+
+          <rect
+            class="hitArea"
+            id="schoolHit"
+            x="${SCHOOL_HIT.x}"
+            y="${SCHOOL_HIT.y}"
+            width="${SCHOOL_HIT.w}"
+            height="${SCHOOL_HIT.h}">
+          </rect>
+        </svg>
+
+        ${debugOverlaySvg({ route: false, school: DEBUG_SCHOOL })}
+
+        ${correctHtml("つぎへ")}
+      </div>
+
+      ${DEBUG_SCHOOL ? debugPanelHtml() : ""}
+    </div>
+  `;
+
+  document.getElementById("schoolHit").addEventListener("pointerup", () => {
+    document.getElementById("schoolGlow").classList.add("on");
+    showCorrect(3);
+  });
+
+  setupDebugDragging({ route: false, school: DEBUG_SCHOOL });
+  updateDebugPanel();
+
+  showIntro(
+    "水元特別支援学校を さがそう",
+    "地図の中から、<br>学校の名前を見つけてタップしましょう。"
+  );
+}
+
+/* =========================================================
+   ④ 学校紹介
+   ========================================================= */
+
+function renderSchoolInfo() {
+  renderInfoPage("school");
+}
+
+/* =========================================================
+   紹介画面共通
+   ========================================================= */
+
+function renderInfoPage(kind) {
+  const item = INFO_CONTENT[kind];
+
+  sceneEl.innerHTML = `
+    <div class="infoViewPage">
+      <div class="streetViewBox">
+        <iframe
+          src="${item.streetViewSrc}"
+          allowfullscreen
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade">
+        </iframe>
+      </div>
+
+      <div class="infoBottomImages">
+        <div class="infoImageBox" data-missing="${item.mapImg} を同じ階層に置いてください">
+          <img src="${item.mapImg}" alt="" draggable="false"
+            onerror="this.closest('.infoImageBox').classList.add('missing'); this.remove();">
+        </div>
+
+        <div class="infoImageBox" data-missing="${item.airImg} を同じ階層に置いてください">
+          <img src="${item.airImg}" alt="" draggable="false"
+            onerror="this.closest('.infoImageBox').classList.add('missing'); this.remove();">
+        </div>
+      </div>
+
+      <button class="mainBtn" id="infoNextBtn">つぎへ</button>
+    </div>
+  `;
+
+  document.getElementById("infoNextBtn").onclick = () => {
+    if (kind === "fire") renderScene(2);
+    if (kind === "school") renderScene(4);
+  };
+}
+
+/* =========================================================
+   ⑤ 消防車の道をなぞる
+   ========================================================= */
+
+function renderRoute() {
+  sceneEl.innerHTML = `
+    <div class="routeScene">
+      <div class="mapFrame" id="routeMap">
+        ${mapImageTag()}
+
+        <canvas
+          class="routeCanvas"
+          id="routeCanvas"
+          width="${MAP_W}"
+          height="${MAP_H}">
+        </canvas>
+
+        <svg class="mapSvg" viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="none">
+          ${svgDefs()}
+
+          <g class="glowGroup on" id="fireGlowRoute">
+            <rect class="glowShape" x="956" y="505" width="175" height="52" rx="14"></rect>
+          </g>
+
+          <g class="glowGroup on">
+            <polygon class="schoolLand" points="${getSchoolPolyString()}"></polygon>
+          </g>
+        </svg>
+
+        ${debugOverlaySvg({ route: DEBUG_ROUTE, school: DEBUG_SCHOOL })}
+
+        ${correctHtml("おわり")}
+      </div>
+
+      <div class="routeBottomBar">
+        <button class="smallBtn" id="clearRouteBtn">けす</button>
+        <div class="progressText" id="progressText">消防署からスタート</div>
+      </div>
+
+      ${debugPanelHtml()}
+    </div>
+  `;
+
+  setupRouteDrawing();
+  setupDebugDragging({ route: DEBUG_ROUTE, school: DEBUG_SCHOOL });
+  updateDebugPanel();
+
+  showIntro(
+    "消防車が通る道を考えよう",
+    "しょうぼうしゃは　ひろいみちを　とおります。<br>とおるみちを　ゆびで　なぞろう。"
+  );
+}
+
+/* =========================================================
+   なぞり処理
+   ========================================================= */
+
+function setupRouteDrawing() {
+  const canvas = document.getElementById("routeCanvas");
+  const ctx = canvas.getContext("2d");
+  const progressText = document.getElementById("progressText");
+
+  let isDrawing = false;
+  let lastPoint = null;
+  let checkpointIndex = 0;
+  let completed = false;
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  function clearCanvas() {
+    ctx.clearRect(0, 0, MAP_W, MAP_H);
+    lastPoint = null;
+    checkpointIndex = 0;
+    completed = false;
+    progressText.textContent = "消防署からスタート";
+  }
+
+  document.getElementById("clearRouteBtn").onclick = clearCanvas;
+
+  function getMapPoint(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) / rect.width * MAP_W,
+      y: (e.clientY - rect.top) / rect.height * MAP_H
+    };
+  }
+
+  function drawHighlighter(p) {
+    ctx.save();
+    ctx.globalAlpha = 0.58;
+    ctx.strokeStyle = "#fff200";
+    ctx.fillStyle = "#fff200";
+    ctx.lineWidth = 34;
+
+    if (lastPoint && distance(lastPoint, p) < 90) {
+      ctx.beginPath();
+      ctx.moveTo(lastPoint.x, lastPoint.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 17, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+    lastPoint = p;
+  }
+
+  function handlePoint(e) {
+    if (completed) return;
+
+    const raw = getMapPoint(e);
+    const allowed = nearestAllowedPoint(raw);
+
+    if (!allowed) {
+      lastPoint = null;
+      return;
+    }
+
+    drawHighlighter(allowed.point);
+    updateCheckpoints(allowed.point);
+  }
+
+  function updateCheckpoints(p) {
+    const checkpoints = getCheckpoints();
+    const cp = checkpoints[checkpointIndex];
+
+    if (!cp) return;
+
+    if (distance(p, cp) <= cp.r) {
+      checkpointIndex++;
+
+      if (checkpointIndex < checkpoints.length) {
+        progressText.textContent = `すすみぐあい　${checkpointIndex} / ${checkpoints.length}`;
+      } else {
+        completed = true;
+        progressText.textContent = "学校の近くまで行けました";
+        showCorrect(5);
+      }
+    }
+  }
+
+  canvas.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    isDrawing = true;
+    lastPoint = null;
+    canvas.setPointerCapture(e.pointerId);
+    handlePoint(e);
+  });
+
+  canvas.addEventListener("pointermove", e => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    handlePoint(e);
+  });
+
+  canvas.addEventListener("pointerup", e => {
+    e.preventDefault();
+    isDrawing = false;
+    lastPoint = null;
+  });
+
+  canvas.addEventListener("pointercancel", () => {
+    isDrawing = false;
+    lastPoint = null;
+  });
+}
+
+function nearestAllowedPoint(p) {
+  let best = null;
+
+  for (const seg of getRouteSegments()) {
+    const a = { x: seg.a[0], y: seg.a[1] };
+    const b = { x: seg.b[0], y: seg.b[1] };
+
+    const q = closestPointOnSegment(p, a, b);
+    const d = distance(p, q);
+
+    if (d <= seg.width / 2) {
+      if (!best || d < best.distance) {
+        best = {
+          point: q,
+          distance: d
+        };
+      }
+    }
+  }
+
+  return best;
+}
+
+function closestPointOnSegment(p, a, b) {
+  const abx = b.x - a.x;
+  const aby = b.y - a.y;
+  const apx = p.x - a.x;
+  const apy = p.y - a.y;
+
+  const abLen2 = abx * abx + aby * aby;
+  let t = (apx * abx + apy * aby) / abLen2;
+  t = Math.max(0, Math.min(1, t));
+
+  return {
+    x: a.x + abx * t,
+    y: a.y + aby * t
+  };
+}
+
+function distance(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/* =========================================================
+   クリア画面
+   ========================================================= */
+
+function renderClear() {
+  sceneEl.innerHTML = `
+    <div class="clearPage">
+      <div class="clearTitle">よくできました！</div>
+      <div class="clearText">
+        消防車は、できるだけ<br>
+        ひろい道を通って進みます。<br><br>
+        地図を見て、場所と道を<br>
+        たしかめることができました。
+      </div>
+      <button class="mainBtn" id="restartBtn">もういちど</button>
+    </div>
+  `;
+
+  document.getElementById("restartBtn").onclick = () => renderScene(0);
+}
+
+/* =========================================================
+   開始
+   ========================================================= */
+
+renderScene(0);
+</script>
+</body>
+</html>
