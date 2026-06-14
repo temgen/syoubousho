@@ -281,6 +281,65 @@ body {
   line-height: 1.5;
 }
 
+/* 紹介画面の説明画像オーバーレイ */
+.helpImageOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(230, 244, 255, .96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.helpImageOverlay img {
+  max-width: 96vw;
+  max-height: 94vh;
+  object-fit: contain;
+  border: 6px solid #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+
+.messageOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+}
+
+.messageBox {
+  width: min(900px, 90vw);
+  background: rgba(255,255,255,.97);
+  border: 8px solid #ffcc00;
+  border-radius: 36px;
+  padding: 38px 44px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.28);
+  text-align: center;
+}
+
+.messageText {
+  font-size: 44px;
+  font-weight: 900;
+  color: #ff3b30;
+  line-height: 1.45;
+}
+
+.messageTap {
+  margin-top: 24px;
+  display: inline-block;
+  padding: 10px 24px;
+  border-radius: 20px;
+  background: #ff8a00;
+  color: #fff;
+  font-size: 26px;
+  font-weight: 900;
+}
+
 .routeCanvas {
   position: absolute;
   inset: 0;
@@ -536,6 +595,11 @@ const TARGET_IMAGES = {
   school: "school_target.png"
 };
 
+const HELP_IMAGES = {
+  fire: "fire_help.png",
+  school: "school_help.png"
+};
+
 const INFO_CONTENT = {
   fire: {
     streetViewSrc: "https://www.google.com/maps/embed?pb=!4v1781187541257!6m8!1m7!1syHWhmIlNIBtGTXKxwdkXYg!2m2!1d35.7806478030261!2d139.863668681261!3f354.13934!4f0!5f0.7820865974627469",
@@ -557,10 +621,6 @@ const INFO_CONTENT = {
 const MAP_W = 1240;
 const MAP_H = 676;
 
-/*
-  学校敷地。
-  DEBUG_SCHOOL = true のとき、赤い点をドラッグして調整できます。
-*/
 let schoolPoints = [
   [256, 243],
   [288, 238],
@@ -575,20 +635,9 @@ function getSchoolPolyString() {
   return schoolPoints.map(p => `${Math.round(p[0])},${Math.round(p[1])}`).join(" ");
 }
 
-/*
-  消防署のタップ判定。
-*/
 const FIRE_HIT = { x: 905, y: 492, w: 235, h: 78 };
-
-/*
-  学校名のタップ判定。
-*/
 const SCHOOL_HIT = { x: 135, y: 190, w: 175, h: 64 };
 
-/*
-  ルートの折れ点。
-  DEBUG_ROUTE = true のとき、青い点をドラッグして調整できます。
-*/
 let routePoints = [
   [938, 527],
   [941, 561],
@@ -602,17 +651,10 @@ let routePoints = [
   [365, 205]
 ];
 
-/*
-  点と点の間の道路幅。
-  routePoints が10点なら、routeWidths は9個です。
-*/
 let routeWidths = [
   50, 54, 54, 54, 58, 62, 62, 62, 62
 ];
 
-/*
-  各ルート点を通過判定に使う半径。
-*/
 let routeCheckpointRadii = [
   45, 55, 70, 70, 75, 75, 75, 75, 75, 80
 ];
@@ -646,12 +688,18 @@ function getCheckpoints() {
 const sceneEl = document.getElementById("scene");
 
 function renderScene(n) {
+  removeOverlays();
+
   if (n === 0) renderFindFire();
   if (n === 1) renderFireInfo();
   if (n === 2) renderFindSchool();
   if (n === 3) renderSchoolInfo();
   if (n === 4) renderRoute();
   if (n === 5) renderClear();
+}
+
+function removeOverlays() {
+  document.querySelectorAll(".introOverlay, .helpImageOverlay, .messageOverlay").forEach(el => el.remove());
 }
 
 function showIntro(title, text) {
@@ -673,6 +721,52 @@ function showIntro(title, text) {
   });
 
   document.body.appendChild(overlay);
+}
+
+/*
+  紹介画面用。
+  1回目タップ：メッセージだけ消える
+  2回目タップ：説明画像が消える
+*/
+function showPlaceHelpOverlay(kind) {
+  const oldHelp = document.querySelector(".helpImageOverlay");
+  if (oldHelp) oldHelp.remove();
+
+  const oldMessage = document.querySelector(".messageOverlay");
+  if (oldMessage) oldMessage.remove();
+
+  const messageText =
+    kind === "fire"
+      ? "しょうぼうしょの<br>まわりをみてみよう！"
+      : "がっこうの<br>まわりをみてみよう！";
+
+  const help = document.createElement("div");
+  help.className = "helpImageOverlay";
+  help.innerHTML = `
+    <img src="${HELP_IMAGES[kind]}" alt="" draggable="false">
+  `;
+
+  help.addEventListener("pointerup", () => {
+    help.remove();
+  });
+
+  const message = document.createElement("div");
+  message.className = "messageOverlay";
+  message.innerHTML = `
+    <div class="messageBox">
+      <div class="messageText">${messageText}</div>
+      <div class="messageTap">タップして つづける</div>
+    </div>
+  `;
+
+  message.addEventListener("pointerup", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    message.remove();
+  });
+
+  document.body.appendChild(help);
+  document.body.appendChild(message);
 }
 
 function svgDefs() {
@@ -1065,7 +1159,7 @@ function renderFindFire() {
 
   showIntro(
     "しょうぼうしょを さがそう",
-    "地図の中から、<br>消防署を見つけてタップしましょう。"
+    "ちずのなかから、<br>しょうぼうしょをみつけてタップしましょう。"
   );
 }
 
@@ -1075,6 +1169,7 @@ function renderFindFire() {
 
 function renderFireInfo() {
   renderInfoPage("fire");
+  showPlaceHelpOverlay("fire");
 }
 
 /* =========================================================
@@ -1126,7 +1221,7 @@ function renderFindSchool() {
 
   showIntro(
     "水元特別支援学校を さがそう",
-    "地図の中から、<br>学校の名前を見つけてタップしましょう。"
+    "ちずのなかから、<br>学校をみつけてタップしましょう。"
   );
 }
 
@@ -1136,6 +1231,7 @@ function renderFindSchool() {
 
 function renderSchoolInfo() {
   renderInfoPage("school");
+  showPlaceHelpOverlay("school");
 }
 
 /* =========================================================
@@ -1214,7 +1310,7 @@ function renderRoute() {
 
       <div class="routeBottomBar">
         <button class="smallBtn" id="clearRouteBtn">けす</button>
-        <div class="progressText" id="progressText">消防署からスタート</div>
+        <div class="progressText" id="progressText">しょうぼうしょからスタート</div>
       </div>
 
       ${debugPanelHtml()}
@@ -1226,7 +1322,7 @@ function renderRoute() {
   updateDebugPanel();
 
   showIntro(
-    "消防車が通る道を考えよう",
+    "しょうぼうしゃがとおるみちをかんがえよう",
     "しょうぼうしゃは　ひろいみちを　とおります。<br>とおるみちを　ゆびで　なぞろう。"
   );
 }
@@ -1253,7 +1349,7 @@ function setupRouteDrawing() {
     lastPoint = null;
     checkpointIndex = 0;
     completed = false;
-    progressText.textContent = "消防署からスタート";
+    progressText.textContent = "しょうぼうしょからスタート";
   }
 
   document.getElementById("clearRouteBtn").onclick = clearCanvas;
@@ -1316,7 +1412,7 @@ function setupRouteDrawing() {
         progressText.textContent = `すすみぐあい　${checkpointIndex} / ${checkpoints.length}`;
       } else {
         completed = true;
-        progressText.textContent = "学校の近くまで行けました";
+        progressText.textContent = "学校のちかくまでいけました";
         showCorrect(5);
       }
     }
@@ -1402,9 +1498,9 @@ function renderClear() {
     <div class="clearPage">
       <div class="clearTitle">よくできました！</div>
       <div class="clearText">
-        消防車は、できるだけ<br>
-        ひろい道を通って進みます。<br><br>
-        地図を見て、場所と道を<br>
+        しょうぼうしゃは、できるだけ<br>
+        ひろいみちをとおってすすみます。<br><br>
+        ちずをみて、ばしょとみちを<br>
         たしかめることができました。
       </div>
       <button class="mainBtn" id="restartBtn">もういちど</button>
